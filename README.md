@@ -43,51 +43,41 @@ nvcc --version
 Download the datasets from [MoleculeNet](https://moleculenet.org/datasets-1). Place the datasets into the `data` directory in your project folder data.
 
 ### Configure Dataset Usage
-To use different datasets, modify the `path.yaml` file in the `config` directory:
+To use different datasets, modify the `c_path.yaml` file in the `config` directory:
 ```yaml
-select_dataset: "qm8"  # Replace "qm8" with "qm7" or "qm9" as needed
+select_dataset: "bace"  # Replace "bace" with "hiv" or "muv" as needed
 ```
 
 ## Running the Project
 
 Execute the project with the configured dataset by running:
 ```bash
-python main.py
+python md_c.py
 ```
 
 
 ## Experimental Results
 
 ### Comparison with Non-Pretrained Models
-The following table presents the comparison of PCNN with various GNN architectures. The best performance values are highlighted in **bold**, and standard deviation values are indicated in subscripts.
-
-| Method        | MAE-QM7              | MAE-QM8              | MAE-QM9              |
-|---------------|----------------------|----------------------|----------------------|
-| GIN           | 110.3<sub>(7.2)</sub>| 0.0199<sub>(0.0002)</sub> | 0.00886<sub>(0.00005)</sub>|
-| GAT           | 103.0<sub>(4.4)</sub>| 0.0224<sub>(0.0005)</sub> | 0.01117<sub>(0.00018)</sub>|
-| GCN           | 100.0<sub>(3.8)</sub>| 0.0203<sub>(0.0005)</sub> | 0.00923<sub>(0.00019)</sub>|
-| D-MPNN        | 103.5<sub>(8.6)</sub>| 0.0190<sub>(0.0001)</sub> | 0.00812<sub>(0.00009)</sub>|
-| Attentive FP  | 72.0<sub>(2.7)</sub> | 0.0179<sub>(0.0001)</sub> | 0.00812<sub>(0.00001)</sub>|
-| GTransformer  | 161.3<sub>(7.1)</sub>| 0.0361<sub>(0.0008)</sub> | 0.00923<sub>(0.00019)</sub>|
-| SGCN          | 131.3<sub>(11.6)</sub>| 0.0285<sub>(0.0005)</sub>| 0.01459<sub>(0.00055)</sub>|
-| DimNet        | 95.6 <sub>(4.1)</sub>| 0.0215<sub>(0.0003)</sub> | 0.01031<sub>(0.00076)</sub>|
-| HMGNN         | 101.6<sub>(3.2)</sub>| 0.0249<sub>(0.0004)</sub> | 0.01239<sub>(0.00001)</sub>|
-| GeoGNN        | 59.0<sub>(3.4)</sub> | **0.0173<sub>(0.0003)</sub>**|0.00746<sub>(0.00002)</sub>|
-| Mol-GDL       | 62.2<sub>(0.4)</sub> | 0.0205<sub>(0.0001)</sub> | 0.00952<sub>(0.00013)</sub>|
-| **PCNN**      | **58.19<sub>(2.1)</sub>** | 0.02029<sub>(0.0006)</sub> | **0.00713<sub>(0.00003)</sub>**|
-
-### Comparison with Pretrained Models
-This table shows how PCNN performs against pretrained GNN architectures. Best performance values are in **bold**, and standard deviations are shown in subscripts.
-
-| Method        | MAE-QM7              | MAE-QM8              | MAE-QM9              |
-|---------------|----------------------|----------------------|----------------------|
-| N-Gram_RF     | 92.8<sub>(4.0)</sub> | 0.0236<sub>(0.0006)</sub>| 0.01037<sub>(0.00016)</sub>|
-| N-Gram_XGB    | 81.9<sub>(1.9)</sub> | 0.0215<sub>(0.0005)</sub>| 0.00964<sub>(0.00031)</sub>|
-| PretrainGNN   | 113.2<sub>(0.6)</sub>| 0.0200<sub>(0.0001)</sub>| 0.00922<sub>(0.00004)</sub>|
-| GROVER_base   | 94.5<sub>(3.8)</sub> | 0.0218<sub>(0.0004)</sub>| 0.00986<sub>(0.00055)</sub>|
-| GROVER_large  | 92.0<sub>(0.9)</sub> | 0.0224<sub>(0.0003)</sub>| 0.00986<sub>(0.00025)</sub>|
-| GEM           | 58.9<sub>(0.8)</sub> | **0.0171<sub>(0.0001)</sub>**| 0.00746<sub>(0.00001)</sub>|
-| DMP           | 74.4<sub>(1.2)</sub> |0.0171<sub>(0.0004)</sub>   | - |
-| **PCNN**      | **58.19<sub>(2.1)</sub>** | 0.02029<sub>(0.0006)</sub> | **0.00713<sub>(0.00003)</sub>**|
+The following table presents the comparison of KA-GNN with various GNN architectures. The best performance values are highlighted in **bold**, and standard deviation values are indicated in subscripts.
+| Model      | BACE           | BBBP           | ClinTox        | SIDER          | Tox21          | HIV            | MUV            |
+|------------|----------------|----------------|----------------|----------------|----------------|----------------|----------------|
+| No. mol    | 1513           | 2039           | 1478           | 1427           | 7831           | 41127          | 93808          |
+| No. avg atoms | 65           | 46             | 50.58          | 65             | 36             | 46             | 43             |
+| No. tasks  | 1              | 1              | 2              | 27             | 12             | 1              | 17             |
+| D-MPNN     | 0.809_(0.006)  | 0.710_(0.003)  | 0.906_(0.007)  | 0.570_(0.007)  | 0.759_(0.007)  | 0.771_(0.005)  | 0.786_(0.014)  |
+| AttentiveFP| 0.784_(0.022)  | 0.663_(0.018)  | 0.847_(0.003)  | 0.606_(0.032)  | 0.781_(0.005)  | 0.757_(0.014)  | 0.786_(0.015)  |
+| N-GramRF   | 0.779_(0.015)  | 0.697_(0.006)  | 0.775_(0.040)  | 0.668_(0.007)  | 0.743_(0.009)  | 0.772_(0.004)  | 0.769_(0.002)  |
+| N-GramXGB  | 0.791_(0.013)  | 0.691_(0.008)  | 0.875_(0.027)  | 0.655_(0.007)  | 0.758_(0.009)  | 0.787_(0.004)  | 0.748_(0.002)  |
+| PretrainGNN| 0.845_(0.007)  | 0.687_(0.013)  | 0.726_(0.015)  | 0.627_(0.008)  | 0.781_(0.006)  | 0.799_(0.007)  | 0.813_(0.021)  |
+| GROVE_base | 0.821_(0.007)  | 0.700_(0.001)  | 0.812_(0.030)  | 0.648_(0.006)  | 0.743_(0.001)  | 0.625_(0.009)  | 0.673_(0.018)  |
+| GROVE_large| 0.810_(0.014)  | 0.695_(0.001)  | 0.762_(0.037)  | 0.654_(0.001)  | 0.735_(0.001)  | 0.682_(0.011)  | 0.673_(0.018)  |
+| GraphMVP   | 0.812_(0.009)  | 0.724_(0.016)  | 0.791_(0.028)  | 0.639_(0.012)  | 0.759_(0.005)  | 0.770_(0.012)  | 0.777_(0.006)  |
+| MolCLR     | 0.824_(0.009)  | 0.722_(0.021)  | 0.912_(0.035)  | 0.589_(0.014)  | 0.750_(0.002)  | 0.781_(0.005)  | 0.796_(0.019)  |
+| GEM        | 0.856_(0.011)  | 0.724_(0.004)  | 0.901_(0.013)  | 0.672_(0.004)  | 0.781_(0.001)  | 0.806_(0.009)  | 0.817_(0.005)  |
+| Mol-GDL    | 0.863_(0.019)  | 0.728_(0.019)  | 0.966_(0.002)  | 0.831_(0.002)  | 0.794_(0.005)  | 0.808_(0.007)  | 0.675_(0.014)  |
+| Uni-mol    | 0.857_(0.002)  | 0.729_(0.006)  | 0.919_(0.018)  | 0.659_(0.013)  | 0.796_(0.005)  | 0.808_(0.003)  | 0.821_(0.013)  |
+| SMPT       | 0.873_(0.015)  | 0.734_(0.003)  | 0.927_(0.002)  | 0.676_(0.050)  | 0.797_(0.001)  | 0.812_(0.001)  | 0.822_(0.008)  |
+| **KA-GNN** | **0.890_(0.014)** | **0.787_(0.014)** | **0.989_(0.003)** | **0.842_(0.001)** | **0.799_(0.005)** | **0.821_(0.005)** | **0.834_(0.009)** |
 
 
