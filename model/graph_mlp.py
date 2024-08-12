@@ -87,7 +87,9 @@ class MLPGNN_two(nn.Module):
 
         #self.layers.append()
         #self.layers.append(NaiveFourierKANLayer(hidden_feat, hidden_feat, grid_feat, addbias=use_bias))
-        
+        self.sumpool = SumPooling()
+        self.avgpool = AvgPooling()
+        self.maxpool = MaxPooling()
 
         #self.layers.append(KAN_linear(hidden_feat, out_feat, grid_feat, addbias=use_bias))
         #self.layers.append(NaiveFourierKANLayer(hidden_feat, out_feat, grid_feat, addbias=use_bias))
@@ -162,7 +164,10 @@ class MLPGNN(nn.Module):
         
         self.linear = nn.Linear(hidden_feat, out, bias=use_bias)
         
-
+        self.sumpool = SumPooling()
+        self.avgpool = AvgPooling()
+        self.maxpool = MaxPooling()
+        
         layers_kan = [
                         #nn.Linear(self.hidden_size*2, self.hidden_size),
                         self.linear_1,

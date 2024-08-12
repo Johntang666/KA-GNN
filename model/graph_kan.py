@@ -194,7 +194,10 @@ class KanGNN_two(nn.Module):
         #self.layers.append(NaiveFourierKANLayer(out_feat, out_feat, grid_feat, addbias=use_bias))
         self.linear_1 = KAN_linear(hidden_feat, out, 1, addbias=True)
         #self.linear_2 = KAN_linear(out_feat, out, grid_feat, addbias=True)
-        
+        self.sumpool = SumPooling()
+        self.avgpool = AvgPooling()
+        self.maxpool = MaxPooling()
+
         layers_kan = [
                         #nn.Linear(self.hidden_size*2, self.hidden_size),
                         self.linear_1,
@@ -256,14 +259,19 @@ class KanGNN(nn.Module):
             self.layers.append(NaiveFourierKANLayer(hidden_feat, hidden_feat, grid_feat, addbias=use_bias))
         # 输出层
         #self.layers.append(nn.Linear(hidden_feat, out_feat, bias=use_bias))
+        self.linear_0 = nn.Linear(hidden_feat, hidden_feat, bias=use_bias)
         self.linear_1 = KAN_linear(hidden_feat, out_feat,grid_feat, addbias=use_bias)
         self.linear_2 = KAN_linear(out_feat, out, grid_feat, addbias=use_bias)
         
         self.linear = KAN_linear(hidden_feat, out, grid_feat, addbias=use_bias)
-        
+        self.sumpool = SumPooling()
+        self.avgpool = AvgPooling()
+        self.maxpool = MaxPooling()
 
         layers_kan = [
                         #nn.Linear(self.hidden_size*2, self.hidden_size),
+                        self.linear_0,
+                        self.leak_relu,
                         self.linear_1,
                         #nn.Sigmoid(),
                         self.leaky_relu,
