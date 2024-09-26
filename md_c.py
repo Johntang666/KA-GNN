@@ -224,16 +224,6 @@ def get_muv():
 
 
 def auc_function(y_true, y_pred):
-    """
-    计算两个张量之间的均方根误差（RMSE）。
-
-    参数:
-    - y_true (torch.Tensor): 真实标签的张量。
-    - y_pred (torch.Tensor): 预测值的张量。
-
-    返回:
-    - torch.Tensor: RMSE 值。
-    """
     assert y_true.shape == y_pred.shape, "y_true and y_pred must have the same shape"
     y_true = y_true.to(torch.float32)
     assert y_true.dtype == y_pred.dtype, "y_true and y_pred must have the same dtype"
