@@ -85,57 +85,17 @@ def collate_fn(batch):
 
 def has_node_with_zero_in_degree(graph):
     if (graph.in_degrees() == 0).any():
-                return True
-    
-    #for graph in graph_list:
-    #    if (graph.in_degrees() == 0).any():
-    #        return True
-        
-    return False
-
-
-def has_isolated_hydrogens(samiles):
-    # 获取分子中的原子
-    molecule = Chem.MolFromSmiles(samiles)
-    mol = Chem.AddHs(molecule)  # 加氢
-    if molecule is None:
         return True
-    
-    atoms = mol.GetAtoms()
-    if len(atoms) <= 2:
-        return True
-    
-    # 遍历原子
-    for atom in atoms:
-        # 如果原子是氢原子且没有邻居
-        if atom.GetAtomicNum() == 1 and atom.GetDegree() == 0:
-            return True  # 存在孤立的氢原子
-    
-    return False  # 不存在孤立的氢原子
-
-
-
-
-
-def conformers_is_zero(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    mol = Chem.AddHs(mol)  # 加氢
-    AllChem.EmbedMultipleConfs(mol, numConfs=10, randomSeed=42) 
-    # 检查是否有构象
-    num_conformers = mol.GetNumConformers()
-
-    G = nx.Graph()
-    for bond in mol.GetBonds():
-        G.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
-
-    # 检查图是否为连通图
-    if G.number_of_nodes() > 0:
-        is_connected = nx.is_connected(G)
-        if num_conformers > 0 and is_connected == True:
-            return True
-    else:
+    else:    
         return False
-    
+
+
+
+
+
+
+
+
 
     
 def min_max_normalize(data):
@@ -143,14 +103,14 @@ def min_max_normalize(data):
     min_val = min(data)
     max_val = max(data)
 
-    # 对每个数据点应用Min-Max归一化公式
+    
     normalized_data = [(x - min_val) / (max_val - min_val) for x in data]
 
     return normalized_data, min_val, max_val
 
 
 def inverse_min_max_normalize(x, min_val, max_val):
-    # 对每个归一化后的数据点应用逆操作
+    
     original_data = x * (max_val - min_val)
     return original_data
 
@@ -159,20 +119,6 @@ def is_file_in_directory(directory, target_file):
     return os.path.isfile(file_path)
 
 
-def unique(class_target):
-    # 假设 y_true_np 是你的 NumPy 数组
-    unique_classes, counts = np.unique(class_target, return_counts=True)
-
-    # 打印唯一的类别和它们的出现次数
-    for class_label, count in zip(unique_classes, counts):
-        print(f"Class {class_label}: {count} samples")
-
-    # 检查类别数量
-    num_classes = len(unique_classes)
-    if num_classes == 2:
-        print("y_true_np 包含两个不同的类别.")
-    else:
-        print("y_true_np 不包含两个不同的类别.")
 
 #others
 def get_label():
@@ -221,21 +167,6 @@ def get_muv():
     return ['MUV-466','MUV-548','MUV-600','MUV-644','MUV-652','MUV-689','MUV-692',
             'MUV-712','MUV-713','MUV-733','MUV-737','MUV-810','MUV-832','MUV-846',
             'MUV-852',	'MUV-858','MUV-859']
-
-
-def auc_function(y_true, y_pred):
-    assert y_true.shape == y_pred.shape, "y_true and y_pred must have the same shape"
-    y_true = y_true.to(torch.float32)
-    assert y_true.dtype == y_pred.dtype, "y_true and y_pred must have the same dtype"
-    y_true_np = y_true.cpu().numpy()
-    y_pred_np = y_pred.cpu().numpy()
-
-    unique(y_true_np)
-    unique(y_pred_np)
-
-    auc = roc_auc_score(y_true_np, y_pred_np)
-    auc = auc.item()
-    return auc
 
 
 
@@ -288,8 +219,6 @@ def creat_data(datafile, encoder_atom, encoder_bond,batch_size,train_ratio,vali_
                 print(i)
 
             smiles = smiles_list[i]
-            
-            #if has_isolated_hydrogens(smiles) == False and conformers_is_zero(smiles) == True :
 
             Graph_list = path_complex_mol(smiles, encoder_atom, encoder_bond)
             if Graph_list == False:
