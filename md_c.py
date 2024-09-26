@@ -3,7 +3,6 @@
 """
 Created on Sat Jan 20 15:08:37 2024
 
-@author: longlee
 """
 
 import torch.nn as nn
@@ -363,20 +362,18 @@ def creat_data(datafile, encoder_atom, encoder_bond,batch_size,train_ratio,vali_
 
 
 def message_func(edges):
-    """ 传递边的特征 """
+    
     return {'feat': edges.data['feat']}
 
 def reduce_func(nodes):
-    """ 加和所有接收到的边特征 """
-    num_edges = nodes.mailbox['feat'].size(1)  # 计算接收到的消息的数量
-    agg_feats = torch.sum(nodes.mailbox['feat'], dim=1) / num_edges  # 求平均
+    
+    num_edges = nodes.mailbox['feat'].size(1)  
+    agg_feats = torch.sum(nodes.mailbox['feat'], dim=1) / num_edges 
     #agg_feats = F.normalize(agg_feats, p=2, dim=1) 
     return {'agg_feats': agg_feats}
 
 def update_node_features(g):
-    """ 执行消息传递并更新节点特征 """
     g.send_and_recv(g.edges(), message_func, reduce_func)
-    # 将加和后的边特征与原节点特征拼接
     g.ndata['feat'] = torch.cat((g.ndata['feat'], g.ndata['agg_feats']), dim=1)
 
     return g
@@ -526,17 +523,14 @@ def predicting(model, device, data_loader):
 def parse_arguments():
     parser = argparse.ArgumentParser(description="示例命令行工具")
 
-    # 添加命令行参数
     parser.add_argument("--config", type=str, help="配置文件路径")
 
     args = parser.parse_args()
     args.config = './config/c_path.yaml'
-    # 如果提供了配置文件路径，则加载配置文件
     if args.config:
         with open(args.config, "r") as config_file:
             config = yaml.safe_load(config_file)
 
-        # 将配置文件中的参数添加到命令行参数中
         for key, value in config.items():
             setattr(args, key, value)
 
@@ -545,7 +539,6 @@ def parse_arguments():
 
 if __name__ == '__main__':
     
-    #mp.set_start_method('spawn', force=True)
     if torch.cuda.is_available():
         device = torch.device('cuda')
         print('The code uses GPU...')
@@ -553,7 +546,7 @@ if __name__ == '__main__':
         device = torch.device('cpu')
         print('The code uses CPU!!!')
 
-    # 设置种子
+    
     seed = 42
     set_seed(seed)
 
@@ -586,10 +579,8 @@ if __name__ == '__main__':
     loss_sclect = args.loss_sclect
 
 
-    # 加载 DataLoader 使用的数据集和其他必要信息
     state = torch.load('data/processed/'+datafile+'.pth')
 
-    # 重新创建 CustomDataset 和 DataLoader
     loaded_train_dataset = CustomDataset(state['train_label'], state['train_graph_list'])
     loaded_valid_dataset = CustomDataset(state['valid_label'], state['valid_graph_list'])
     loaded_test_dataset = CustomDataset(state['test_label'], state['test_graph_list'])
@@ -632,9 +623,6 @@ if __name__ == '__main__':
         model = MLPGNN_two(in_feat=encode_dim[0]+encode_dim[1], hidden_feat=64, out_feat=32, out=target_dim, grid_feat=grid_feat, num_layers=num_layers, pooing = pooling, use_bias=True)
 
             
-    
-    #print(model)
-    # 统计模型的总参数数量
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total parameters: {total_params}")
 
