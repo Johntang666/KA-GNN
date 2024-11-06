@@ -162,9 +162,8 @@ class Gat_Kan_layer(nn.Module):
         return {'feat': edges.data['feat']}
 
     def reduce_func(self, nodes):
-        # 归一化或平均
-        num_edges = nodes.mailbox['feat'].size(1)  # 计算接收到的消息的数量
-        agg_feats = torch.sum(nodes.mailbox['feat'], dim=1) / num_edges  # 求平均
+        num_edges = nodes.mailbox['feat'].size(1)  
+        agg_feats = torch.sum(nodes.mailbox['feat'], dim=1) / num_edges  
         return {'agg_feats': agg_feats}
     
 
@@ -173,7 +172,7 @@ class Gat_Kan_layer(nn.Module):
             graph.ndata['feat'] = nfeats
             graph.edata['feat'] = efeats
             in_degrees = graph.in_degrees().float().unsqueeze(-1)
-            in_degrees[in_degrees == 0] = 1  # 将入度为0的节点设置为1，以避免除零错误
+            in_degrees[in_degrees == 0] = 1 
             f_ni = self.fc_ni(nfeats)# in_node_feats --> out_edge_feats
             f_nj = self.fc_nj(nfeats)# in_node_feats --> out_edge_feats
             f_fij = self.fc_fij(efeats)# in_edge_feats --> out_edge_feats
@@ -304,14 +303,3 @@ class KAN_GAT(nn.Module):
         
 
         return out
-
-
-
-
-if __name__ == "__main__":
-    g = dgl.graph((torch.tensor([0, 1, 2]), torch.tensor([1, 2, 0])))  # 示例图
-    x = torch.randn(3, 5)  # 节点特征维度为 5
-    edge_feature = torch.randn(3, 5)  # 边特征维度为 5
-    model = KANGAT(in_node_dim=5, in_edge_dim=5, hidden_dim=64, out_1=32, out_2=1, gride_size=1, head=4)  # 输入特征5，中间输出特征2，头数3
-    output = model(g, x, edge_feature, pooling = 'avg')
-    print(output)
