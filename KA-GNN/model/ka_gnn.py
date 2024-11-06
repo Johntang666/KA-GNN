@@ -14,64 +14,6 @@ if torch.cuda.is_available():
     device = torch.device("cuda")
 
 
-'''
-
-
-
-def pool_subgraphs_node(out, batched_graph):
-    # 将整图的输出按照子图数量拆分成子图的输出
-    subgraphs = dgl.unbatch(batched_graph)
-
-    # 对每个子图进行池化操作，这里使用了平均池化
-    pooled_outputs = []
-    ini = 0
-    for subgraph in subgraphs:
-        # 获取子图节点的数量
-        num_nodes = subgraph.num_nodes()
-        
-        # 根据子图的节点数量对整图的输出进行切片
-        start_idx = ini
-        end_idx = start_idx + num_nodes
-        sg_out = out[start_idx:end_idx]
-        ini += num_nodes
-        # 计算每个子图的平均池化表示
-        #print(sg_out.shape)
-        #pooled_out = F.avg_pool2d(sg_out, kernel_size=num_nodes)  # 使用节点数作为池化核的大小
-        pooled_out = F.adaptive_avg_pool1d(sg_out.unsqueeze(0).permute(0, 2, 1), 1).squeeze()
-
-        pooled_outputs.append(pooled_out)
-
-    return torch.stack(pooled_outputs)
-
-
-def pool_subgraphs_edge(out, batched_graph):
-    # 将整图的输出按照子图数量拆分成子图的输出
-    subgraphs = dgl.unbatch(batched_graph)
-
-    # 对每个子图进行池化操作，这里使用了平均池化
-    pooled_outputs = []
-    ini = 0
-    for subgraph in subgraphs:
-        # 获取子图节点的数量
-        num_edges = subgraph.num_edges()
-        
-        # 根据子图的节点数量对整图的输出进行切片
-        start_idx = ini
-        end_idx = start_idx + num_edges
-        sg_out = out[start_idx:end_idx]
-        ini += num_edges
-        # 计算每个子图的平均池化表示
-        #print(sg_out.shape)
-        #pooled_out = F.avg_pool2d(sg_out, kernel_size=num_nodes)  # 使用节点数作为池化核的大小
-        pooled_out = F.adaptive_avg_pool1d(sg_out.unsqueeze(0).permute(0, 2, 1), 1).squeeze()
-        #pooled_out = F.adaptive_max_pool1d(sg_out.unsqueeze(0).permute(0, 2, 1), 1).squeeze()
-
-        pooled_outputs.append(pooled_out)
-
-    return torch.stack(pooled_outputs)
-
-'''
-
 class KAN_linear(nn.Module):
     def __init__(self, inputdim, outdim, gridsize, addbias=True):
         super(KAN_linear,self).__init__()
@@ -89,24 +31,12 @@ class KAN_linear(nn.Module):
         xshp = x.shape
         outshape = xshp[0:-1] + (self.outdim,)
         x = x.view(-1, self.inputdim)
-        #Starting at 1 because constant terms are in the bias
         k = torch.reshape(torch.arange(1, self.gridsize+1, device=x.device), (1, 1, 1, self.gridsize))
         xrshp = x.view(x.shape[0], 1, x.shape[1], 1)
-        #This should be fused to avoid materializing memory
         c = torch.cos(k * xrshp)
         s = torch.sin(k * xrshp)
 
-        
-        # #We compute the interpolation of the various functions defined by their fourier coefficient for each input coordinates and we sum them 
-        # y =  torch.sum(c * self.fouriercoeffs[0:1], (-2, -1)) 
-        # y += torch.sum(s * self.fouriercoeffs[1:2], (-2, -1))
-        # if self.addbias:
-        #     y += self.bias
-        # #End fuse
-        
-        #You can use einsum instead to reduce memory usage
-        #It stills not as good as fully fused but it should help
-        #einsum is usually slower though
+    
         c = torch.reshape(c, (1, x.shape[0], x.shape[1], self.gridsize))
         s = torch.reshape(s, (1, x.shape[0], x.shape[1], self.gridsize))
         y = torch.einsum("dbik,djik->bj", torch.concat([c, s], axis=0), self.fouriercoeffs)
@@ -126,7 +56,6 @@ class NaiveFourierKANLayer(nn.Module):
         self.in_feats = in_feats
         self.out_feats = out_feats
 
-        # Fourier coefficients as parameters
         self.fouriercoeffs = nn.Parameter(torch.randn(2, out_feats, in_feats, gridsize) / 
                                           (np.sqrt(in_feats) * np.sqrt(gridsize)))
         if self.addbias:
@@ -134,7 +63,6 @@ class NaiveFourierKANLayer(nn.Module):
 
 
     def forward(self, g, x):
-        # Assuming x is the input feature matrix of shape (N, in_feats)
         with g.local_scope():
             g.ndata['h'] = x
             
@@ -146,10 +74,8 @@ class NaiveFourierKANLayer(nn.Module):
             return g.ndata['h']
 
     def fourier_transform(self, edges):
-        # Access the source node feature
         src_feat = edges.src['h']  # Shape: (E, in_feats)
 
-        # Prepare Fourier basis functions
         k = torch.reshape(torch.arange(1, self.gridsize + 1, device=src_feat.device), (1, 1, 1, self.gridsize))
         src_rshp = src_feat.view(src_feat.shape[0], 1, src_feat.shape[1], 1)
         cos_kx = torch.cos(k * src_rshp)
@@ -211,16 +137,11 @@ class KA_GNN_two(nn.Module):
         h = self.kan_line(h)
 
         for i, layer in enumerate(self.layers):
-            m = layer(g, h)  # 假设 KANLayer 被改造为接受 (graph, features)
-            #h = self.leaky_relu(torch.add(m,h)
+            m = layer(g, h) 
             h = nn.functional.leaky_relu(torch.add(m, h))
         
         if self.pooling == 'avg':
             y = self.avgpool(g, h)
-            #y1 = pool_subgraphs_node(out_1, g_graph)
-            #y2 = pool_subgraphs_node(out_2, lg_graph)
-            #y3 = pool_subgraphs_node(out_3, fg_graph)
-
 
         elif self.pooling == 'max':
             y = self.maxpool(g, h)
@@ -233,12 +154,11 @@ class KA_GNN_two(nn.Module):
         else:
             print('No pooling found!!!!')
 
-        #y = pool_subgraphs_node(h, g)
         out = self.Readout(y)    
         return out
     
     def get_grad_norm_weights(self) -> nn.Module:
-        # 返回需要进行梯度范数计算的参数
+       
         return self.parameters()
     
 
@@ -254,7 +174,6 @@ class KA_GNN(nn.Module):
         self.leaky_relu = nn.LeakyReLU()
         self.dropout = nn.Dropout(0.1)
 
-        # 初始化隐藏层的 KAN 层
         for _ in range(num_layers - 1):
             self.layers.append(NaiveFourierKANLayer(hidden_feat, hidden_feat, grid_feat, addbias=use_bias))
        
@@ -281,10 +200,10 @@ class KA_GNN(nn.Module):
         h = self.kan_line(features)
         for i, layer in enumerate(self.layers):
             if i < self.num_layers - 1:
-                h = layer(g, h)  # 假设 KANLayer 被改造为接受 (graph, features)
+                h = layer(g, h)  
                 
             else:
-                h = layer(h)  # 最后一层（线性）
+                h = layer(h) 
         if self.pooling == 'avg':
             y = self.avgpool(g, h)
             #y1 = pool_subgraphs_node(out_1, g_graph)
@@ -305,25 +224,5 @@ class KA_GNN(nn.Module):
         return out
     
     def get_grad_norm_weights(self) -> nn.Module:
-        # 返回需要进行梯度范数计算的参数
         return self.parameters()
-    
-
-if __name__ == '__main__':
-    # 创建一个简单的图
-    num_nodes = 10  # 节点数
-    num_edges = 30  # 边数
-    g = dgl.rand_graph(num_nodes, num_edges)  # 随机生成一个有向图
-
-    # 为节点分配特征
-    node_features = torch.randn(num_nodes, 5)  # 假设输入特征维度为5
-
-    # 初始化模型
-    model = KanGNN(in_feat=5, hidden_feat=10, out_feat=3, grid_feat=100, num_layers=3, use_bias=True)
-
-    # 前向传播
-    logits = model(g, node_features)
-    
-    # 打印输出
-    print("Logits:", logits)
     
