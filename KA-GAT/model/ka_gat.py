@@ -311,13 +311,3 @@ class KA_GAT(nn.Module):
 
         return out
 
-
-
-
-if __name__ == "__main__":
-    g = dgl.graph((torch.tensor([0, 1, 2]), torch.tensor([1, 2, 0])))  # 示例图
-    x = torch.randn(3, 5)  # 节点特征维度为 5
-    edge_feature = torch.randn(3, 5)  # 边特征维度为 5
-    model = KANGAT(in_node_dim=5, in_edge_dim=5, hidden_dim=64, out_1=32, out_2=1, gride_size=1, head=4)  # 输入特征5，中间输出特征2，头数3
-    output = model(g, x, edge_feature, pooling = 'avg')
-    print(output)
