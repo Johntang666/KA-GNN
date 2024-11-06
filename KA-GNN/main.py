@@ -56,16 +56,14 @@ class CustomDataset(Dataset):
     def __init__(self, label_list, graph_list):
         self.labels = label_list
         self.graphs = graph_list
-        self.device = torch.device('cpu')  # 或 'cuda' 如果您使用 GPU
+        self.device = torch.device('cpu')  
 
     def __len__(self):
         return len(self.labels)
 
     def __getitem__(self, index):
-        # 获取标签并移动到设备
         label = self.labels[index].to(self.device)
         
-        # 获取单个图并移动到设备
         graph = self.graphs[index].to(self.device)
         
         return label, graph
@@ -73,12 +71,10 @@ class CustomDataset(Dataset):
 
 
 def collate_fn(batch):
-    labels, graphs = zip(*batch)  # 解压批次数据
+    labels, graphs = zip(*batch)  
 
-    # 将标签堆叠成一个张量
     labels = torch.stack(labels)
 
-    # 批次化图
     batched_graph = dgl.batch(graphs)
 
     return labels, batched_graph
@@ -88,18 +84,13 @@ def collate_fn(batch):
 def has_node_with_zero_in_degree(graph):
     if (graph.in_degrees() == 0).any():
                 return True
-    
-    #for graph in graph_list:
-    #    if (graph.in_degrees() == 0).any():
-    #        return True
-        
+
     return False
 
 
 def has_isolated_hydrogens(samiles):
-    # 获取分子中的原子
     molecule = Chem.MolFromSmiles(samiles)
-    mol = Chem.AddHs(molecule)  # 加氢
+    mol = Chem.AddHs(molecule)  
     if molecule is None:
         return True
     
@@ -107,13 +98,12 @@ def has_isolated_hydrogens(samiles):
     if len(atoms) <= 2:
         return True
     
-    # 遍历原子
+
     for atom in atoms:
-        # 如果原子是氢原子且没有邻居
         if atom.GetAtomicNum() == 1 and atom.GetDegree() == 0:
-            return True  # 存在孤立的氢原子
+            return True  
     
-    return False  # 不存在孤立的氢原子
+    return False 
 
 
 
@@ -121,16 +111,14 @@ def has_isolated_hydrogens(samiles):
 
 def conformers_is_zero(smiles):
     mol = Chem.MolFromSmiles(smiles)
-    mol = Chem.AddHs(mol)  # 加氢
+    mol = Chem.AddHs(mol)  
     AllChem.EmbedMultipleConfs(mol, numConfs=10, randomSeed=42) 
-    # 检查是否有构象
     num_conformers = mol.GetNumConformers()
 
     G = nx.Graph()
     for bond in mol.GetBonds():
         G.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
 
-    # 检查图是否为连通图
     if G.number_of_nodes() > 0:
         is_connected = nx.is_connected(G)
         if num_conformers > 0 and is_connected == True:
@@ -141,18 +129,15 @@ def conformers_is_zero(smiles):
 
     
 def min_max_normalize(data):
-    # 找到最小值和最大值
     min_val = min(data)
     max_val = max(data)
 
-    # 对每个数据点应用Min-Max归一化公式
     normalized_data = [(x - min_val) / (max_val - min_val) for x in data]
 
     return normalized_data, min_val, max_val
 
 
 def inverse_min_max_normalize(x, min_val, max_val):
-    # 对每个归一化后的数据点应用逆操作
     original_data = x * (max_val - min_val)
     return original_data
 
@@ -161,20 +146,6 @@ def is_file_in_directory(directory, target_file):
     return os.path.isfile(file_path)
 
 
-def unique(class_target):
-    # 假设 y_true_np 是你的 NumPy 数组
-    unique_classes, counts = np.unique(class_target, return_counts=True)
-
-    # 打印唯一的类别和它们的出现次数
-    for class_label, count in zip(unique_classes, counts):
-        print(f"Class {class_label}: {count} samples")
-
-    # 检查类别数量
-    num_classes = len(unique_classes)
-    if num_classes == 2:
-        print("y_true_np 包含两个不同的类别.")
-    else:
-        print("y_true_np 不包含两个不同的类别.")
 
 #others
 def get_label():
@@ -225,29 +196,6 @@ def get_muv():
             'MUV-852',	'MUV-858','MUV-859']
 
 
-def auc_function(y_true, y_pred):
-    """
-    计算两个张量之间的均方根误差（RMSE）。
-
-    参数:
-    - y_true (torch.Tensor): 真实标签的张量。
-    - y_pred (torch.Tensor): 预测值的张量。
-
-    返回:
-    - torch.Tensor: RMSE 值。
-    """
-    assert y_true.shape == y_pred.shape, "y_true and y_pred must have the same shape"
-    y_true = y_true.to(torch.float32)
-    assert y_true.dtype == y_pred.dtype, "y_true and y_pred must have the same dtype"
-    y_true_np = y_true.cpu().numpy()
-    y_pred_np = y_pred.cpu().numpy()
-
-    unique(y_true_np)
-    unique(y_pred_np)
-
-    auc = roc_auc_score(y_true_np, y_pred_np)
-    auc = auc.item()
-    return auc
 
 
 
@@ -357,48 +305,31 @@ def creat_data(datafile, encoder_atom, encoder_bond,batch_size,train_ratio,vali_
             'test_label': test_label,
             'test_graph_list': test_graph_list,
             'batch_size': batch_size,
-            'shuffle': True,  # 保存时假设你在创建 DataLoader 时使用了 shuffle=True
-            # 其他必要信息
+            'shuffle': True,  
         }, 'data/processed/'+ datafile +'.pth')
 
 
 
 def message_func(edges):
-    """ 传递边的特征 """
+    """ edge feature """
     return {'feat': edges.data['feat']}
 
 def reduce_func(nodes):
-    """ 加和所有接收到的边特征 """
-    num_edges = nodes.mailbox['feat'].size(1)  # 计算接收到的消息的数量
+    """ add all node feature """
+    num_edges = nodes.mailbox['feat'].size(1)  
     agg_feats = torch.sum(nodes.mailbox['feat'], dim=1) / num_edges  # 求平均
     #agg_feats = F.normalize(agg_feats, p=2, dim=1) 
     return {'agg_feats': agg_feats}
 
 def update_node_features(g):
-    """ 执行消息传递并更新节点特征 """
+    """ updata node feature"""
     g.send_and_recv(g.edges(), message_func, reduce_func)
-    # 将加和后的边特征与原节点特征拼接
     g.ndata['feat'] = torch.cat((g.ndata['feat'], g.ndata['agg_feats']), dim=1)
 
     return g
 
 
 
-
-def add_noise(node_feat, noise=False):
-    row, col = node_feat.shape  # 获取张量的形状
-    
-    if noise:
-        # 如果需要添加噪声，生成噪声数据
-        extension_tensor = torch.randn(row, 128 - col).to(device)
-    else:
-        # 否则添加全零的张量
-        extension_tensor = torch.zeros(row, 128 - col).to(device)
-
-    # 将两个张量沿着第二个维度（列）拼接
-    extended_tensor = torch.cat([node_feat, extension_tensor], dim=1)
-
-    return extended_tensor
 
 
 
@@ -417,8 +348,7 @@ def train(model, device, train_loader, valid_loader, optimizer, epoch):
         y = data[0]
         train_label_value.append(torch.unsqueeze(y, dim=0))
         graph_list = update_node_features(data[1]).to(device)
-        #node_features = graph_list.ndata['feat'].to(device)
-        node_features = add_noise(graph_list.ndata['feat'],noise=True).to(device)
+        node_features = graph_list.ndata['feat'].to(device)
         #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu()
         output = model(graph_list, node_features).cpu()
         
@@ -443,27 +373,6 @@ def train(model, device, train_loader, valid_loader, optimizer, epoch):
         train_loss.backward()
         optimizer.step()
 
-    '''if epoch+1 % 1000 == 0:
-        print(f'Epoch {epoch}, Loss: {loss.item()}')
-        # 将傅立叶系数转换为 NumPy 数组
-        fourier_coeffs_np = model.kan_line.fouriercoeffs.detach().cpu().numpy()
-
-        # 指定保存的文件路径
-        file_path = 'fourier_coeffs.csv'
-
-        # 打开文件并写入
-        with open(file_path, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            # 写入多行，每行是傅立叶系数的一个切片
-            writer.writerow(['Real Part', 'Imaginary Part', 'Input Dimension', 'Grid Size'])
-            for outdim in range(fourier_coeffs_np.shape[1]):
-                for inputdim in range(fourier_coeffs_np.shape[2]):
-                    for gridsize in range(fourier_coeffs_np.shape[3]):
-                        real_part = fourier_coeffs_np[0, outdim, inputdim, gridsize]
-                        imaginary_part = fourier_coeffs_np[1, outdim, inputdim, gridsize]
-                        writer.writerow([real_part, imaginary_part, inputdim, gridsize])
-
-        print(f"Fourier coefficients saved to {file_path}")'''
 
     # 在整个批次上进行一次梯度计算和裁剪
     '''
@@ -551,19 +460,16 @@ def predicting(model, device, data_loader):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="示例命令行工具")
+    parser = argparse.ArgumentParser(description="help")
 
-    # 添加命令行参数
-    parser.add_argument("--config", type=str, help="配置文件路径")
+    parser.add_argument("--config", type=str, help="path")
 
     args = parser.parse_args()
     args.config = './config/c_path.yaml'
-    # 如果提供了配置文件路径，则加载配置文件
     if args.config:
         with open(args.config, "r") as config_file:
             config = yaml.safe_load(config_file)
 
-        # 将配置文件中的参数添加到命令行参数中
         for key, value in config.items():
             setattr(args, key, value)
 
@@ -580,7 +486,6 @@ if __name__ == '__main__':
         device = torch.device('cpu')
         print('The code uses CPU!!!')
 
-    # 设置种子
     seed = 42
     set_seed(seed)
 
@@ -613,10 +518,8 @@ if __name__ == '__main__':
     loss_sclect = args.loss_sclect
 
 
-    # 加载 DataLoader 使用的数据集和其他必要信息
     state = torch.load('data/processed/'+datafile+'.pth')
 
-    # 重新创建 CustomDataset 和 DataLoader
     loaded_train_dataset = CustomDataset(state['train_label'], state['train_graph_list'])
     loaded_valid_dataset = CustomDataset(state['valid_label'], state['valid_graph_list'])
     loaded_test_dataset = CustomDataset(state['test_label'], state['test_graph_list'])
@@ -631,12 +534,6 @@ if __name__ == '__main__':
 
     loaded_test_loader = DataLoader(loaded_test_dataset, batch_size=batch_size, shuffle=state['shuffle'],num_workers=4, pin_memory=True, drop_last=True, collate_fn=collate_fn)
 
-
-    print('dataset was loaded!')
-
-    print("length of training set:",len(loaded_train_dataset))
-    print("length of validation set:",len(loaded_valid_dataset))
-    print("length of testing set:",len(loaded_test_dataset))
     
     iter = args.iter
     LR = args.LR
@@ -674,15 +571,13 @@ if __name__ == '__main__':
                            grid_feat=grid_feat, num_layers=num_layers, pooling = pooling, use_bias=True)
                 
         
-        #print(model)
-        # 统计模型的总参数数量
+
         total_params = sum(p.numel() for p in model.parameters())
         print(f"Total parameters: {total_params}")
 
         train_loss_dic = {}
         vali_loss_dic = {}
 
-        #model = modeling().to(device)
         model = model.to(device)
         if loss_sclect == 'l1':
             #loss_fn = nn.L1Loss()
@@ -718,28 +613,6 @@ if __name__ == '__main__':
 
                 print(f"Epoch [{epoch+1}], Learning Rate: {scheduler.get_last_lr()}")
 
-                
-                #if epoch+1 % 1000 == 0:
-                #print(f'Epoch {epoch}, Loss: {loss.item()}')
-                # 将傅立叶系数转换为 NumPy 数组
-                fourier_coeffs_np = model.kan_line.fouriercoeffs.detach().cpu().numpy()
-
-                # 指定保存的文件路径
-                file_path = 'fourier_coeffs.csv'
-
-                # 打开文件并写入
-                with open(file_path, mode='w', newline='') as file:
-                    writer = csv.writer(file)
-                    # 写入多行，每行是傅立叶系数的一个切片
-                    writer.writerow(['Real Part', 'Imaginary Part', 'Input Dimension', 'Grid Size'])
-                    for outdim in range(fourier_coeffs_np.shape[1]):
-                        for inputdim in range(fourier_coeffs_np.shape[2]):
-                            for gridsize in range(fourier_coeffs_np.shape[3]):
-                                real_part = fourier_coeffs_np[0, outdim, inputdim, gridsize]
-                                imaginary_part = fourier_coeffs_np[1, outdim, inputdim, gridsize]
-                                writer.writerow([real_part, imaginary_part, inputdim, gridsize])
-
-                print(f"Fourier coefficients saved to {file_path}")
         
             if epoch % 10 == 0:
                 #MAE_list.append(best_MAE)
@@ -753,10 +626,7 @@ if __name__ == '__main__':
                 All_AUC.append(best_auc)
     torch.save(model.state_dict(), 'model.pth')
     
-    # 计算均值
     mean_value = statistics.mean(All_AUC)
-    # 计算标准差
     std_dev = statistics.stdev(All_AUC)
-    # 打印结果
-    print("均值:", mean_value)
-    print("标准差:", std_dev)
+    print("mean:", mean_value)
+    print("std:", std_dev)
