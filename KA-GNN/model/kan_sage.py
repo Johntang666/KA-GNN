@@ -62,16 +62,12 @@ class KANGNN_two(nn.Module):
         h = self.kan_line(h)
 
         for i, layer in enumerate(self.layers):
-            m = layer(g, h)  # 假设 KANLayer 被改造为接受 (graph, features)
+            m = layer(g, h) 
             #h = self.leaky_relu(torch.add(m,h)
             h = nn.functional.leaky_relu(torch.add(m, h))
         
         if self.pooling == 'avg':
             y = self.avgpool(g, h)
-            #y1 = pool_subgraphs_node(out_1, g_graph)
-            #y2 = pool_subgraphs_node(out_2, lg_graph)
-            #y3 = pool_subgraphs_node(out_3, fg_graph)
-
 
         elif self.pooling == 'max':
             y = self.maxpool(g, h)
@@ -88,7 +84,6 @@ class KANGNN_two(nn.Module):
         return out
     
     def get_grad_norm_weights(self) -> nn.Module:
-        # 返回需要进行梯度范数计算的参数
         return self.parameters()
     
 
@@ -105,10 +100,9 @@ class KANGNN(nn.Module):
         self.leaky_relu = nn.LeakyReLU()
         self.dropout = nn.Dropout(0.1)
 
-        # 初始化隐藏层的 KAN 层
         for _ in range(num_layers - 1):
             self.layers.append(SAGEConv(hidden_feat, hidden_feat, 'mean'))
-        # 输出层
+
         #self.layers.append(nn.Linear(hidden_feat, out_feat, bias=use_bias))
         self.linear_1 = KAN(width=[hidden_feat,5,out_feat], grid=grid_feat, k=3, seed=0)
         self.linear_2 = KAN(width=[out_feat,5,out], grid=grid_feat, k=3, seed=0)
@@ -134,10 +128,10 @@ class KANGNN(nn.Module):
         h = self.lin_in(features)
         for i, layer in enumerate(self.layers):
             if i < self.num_layers - 1:
-                h = layer(g, h)  # 假设 KANLayer 被改造为接受 (graph, features)
+                h = layer(g, h) 
                 
             else:
-                h = layer(h)  # 最后一层（线性）
+                h = layer(h)  
         if self.pooling == 'avg':
             y = self.avgpool(g, h)
             
@@ -157,6 +151,5 @@ class KANGNN(nn.Module):
         return out
     
     def get_grad_norm_weights(self) -> nn.Module:
-        # 返回需要进行梯度范数计算的参数
         return self.parameters()
     
