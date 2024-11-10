@@ -52,7 +52,7 @@ select_dataset: "bace"  # Replace "bace" with "hiv" or "muv" as needed
 
 Execute the project with the configured dataset by running:
 ```bash
-python md_c.py
+python main.py
 ```
 
 ## KA-GNNs(KA-GCN and KA-GAT)
