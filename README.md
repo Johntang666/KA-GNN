@@ -55,8 +55,8 @@ Execute the project with the configured dataset by running:
 python md_c.py
 ```
 
-## KA-GNN(KA-GCN and KA-GAT)
-![Same Folder Image](KA-GNN.jpg)
+## KA-GNNs(KA-GCN and KA-GAT)
+![KA-GNNs](KA_GNN.png)  
 
 ## Experimental Results
 
