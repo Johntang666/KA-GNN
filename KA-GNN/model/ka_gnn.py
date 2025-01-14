@@ -179,7 +179,7 @@ class KA_GNN(nn.Module):
        
         self.linear_1 = KAN_linear(hidden_feat, out_feat, grid_feat, addbias=use_bias)
         self.linear_2 = KAN_linear(out_feat, out, grid_feat, addbias=use_bias)
-        
+        self.linear = KAN_linear(hidden_feat, out, grid_feat, addbias=use_bias)
 
         self.sumpool = SumPooling()
         self.avgpool = AvgPooling()
