@@ -276,23 +276,6 @@ def update_node_features(g):
 
 
 
-def add_noise(node_feat, noise=False):
-    row, col = node_feat.shape  # 获取张量的形状
-    
-    if noise:
-        # 如果需要添加噪声，生成噪声数据
-        extension_tensor = torch.randn(row, 128 - col).to(device)
-    else:
-        # 否则添加全零的张量
-        extension_tensor = torch.zeros(row, 128 - col).to(device)
-
-    # 将两个张量沿着第二个维度（列）拼接
-    extended_tensor = torch.cat([node_feat, extension_tensor], dim=1)
-
-    return extended_tensor
-
-
-
 
 def train(model, device, train_loader, valid_loader, optimizer, epoch):
     model.train()
@@ -542,7 +525,7 @@ if __name__ == '__main__':
                 #MAE_list.append(best_MAE)
                 print("-------------------------------------------------------")
                 print("epoch:",epoch)
-                print('best_MAE:', best_auc)
+                print('best_AUC:', best_auc)
             
             if epoch == NUM_EPOCHS-1:
                 print(f"the best result up to {i+1}-loop is {best_auc:.4f}.")
