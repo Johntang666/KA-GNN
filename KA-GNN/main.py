@@ -20,6 +20,7 @@ import random
 import dgl
 import statistics
 import csv
+import time
 
 from logzero import logger
 import torch.multiprocessing as mp
@@ -56,7 +57,7 @@ class CustomDataset(Dataset):
     def __init__(self, label_list, graph_list):
         self.labels = label_list
         self.graphs = graph_list
-        self.device = torch.device('cpu')  
+        self.device = torch.device('cpu') 
 
     def __len__(self):
         return len(self.labels)
@@ -64,6 +65,7 @@ class CustomDataset(Dataset):
     def __getitem__(self, index):
         label = self.labels[index].to(self.device)
         
+
         graph = self.graphs[index].to(self.device)
         
         return label, graph
@@ -71,7 +73,7 @@ class CustomDataset(Dataset):
 
 
 def collate_fn(batch):
-    labels, graphs = zip(*batch)  
+    labels, graphs = zip(*batch) 
 
     labels = torch.stack(labels)
 
@@ -84,67 +86,14 @@ def collate_fn(batch):
 def has_node_with_zero_in_degree(graph):
     if (graph.in_degrees() == 0).any():
                 return True
-
     return False
 
 
-def has_isolated_hydrogens(samiles):
-    molecule = Chem.MolFromSmiles(samiles)
-    mol = Chem.AddHs(molecule)  
-    if molecule is None:
-        return True
-    
-    atoms = mol.GetAtoms()
-    if len(atoms) <= 2:
-        return True
-    
 
-    for atom in atoms:
-        if atom.GetAtomicNum() == 1 and atom.GetDegree() == 0:
-            return True  
-    
-    return False 
-
-
-
-
-
-def conformers_is_zero(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    mol = Chem.AddHs(mol)  
-    AllChem.EmbedMultipleConfs(mol, numConfs=10, randomSeed=42) 
-    num_conformers = mol.GetNumConformers()
-
-    G = nx.Graph()
-    for bond in mol.GetBonds():
-        G.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
-
-    if G.number_of_nodes() > 0:
-        is_connected = nx.is_connected(G)
-        if num_conformers > 0 and is_connected == True:
-            return True
-    else:
-        return False
-    
-
-    
-def min_max_normalize(data):
-    min_val = min(data)
-    max_val = max(data)
-
-    normalized_data = [(x - min_val) / (max_val - min_val) for x in data]
-
-    return normalized_data, min_val, max_val
-
-
-def inverse_min_max_normalize(x, min_val, max_val):
-    original_data = x * (max_val - min_val)
-    return original_data
 
 def is_file_in_directory(directory, target_file):
     file_path = os.path.join(directory, target_file)
     return os.path.isfile(file_path)
-
 
 
 #others
@@ -194,7 +143,6 @@ def get_muv():
     return ['MUV-466','MUV-548','MUV-600','MUV-644','MUV-652','MUV-689','MUV-692',
             'MUV-712','MUV-713','MUV-733','MUV-737','MUV-810','MUV-832','MUV-846',
             'MUV-852',	'MUV-858','MUV-859']
-
 
 
 
@@ -311,25 +259,37 @@ def creat_data(datafile, encoder_atom, encoder_bond,batch_size,train_ratio,vali_
 
 
 def message_func(edges):
-    """ edge feature """
     return {'feat': edges.data['feat']}
 
 def reduce_func(nodes):
-    """ add all node feature """
     num_edges = nodes.mailbox['feat'].size(1)  
-    agg_feats = torch.sum(nodes.mailbox['feat'], dim=1) / num_edges  # 求平均
-    #agg_feats = F.normalize(agg_feats, p=2, dim=1) 
+    agg_feats = torch.sum(nodes.mailbox['feat'], dim=1) / num_edges  
     return {'agg_feats': agg_feats}
 
 def update_node_features(g):
-    """ updata node feature"""
     g.send_and_recv(g.edges(), message_func, reduce_func)
+
     g.ndata['feat'] = torch.cat((g.ndata['feat'], g.ndata['agg_feats']), dim=1)
 
     return g
 
 
 
+
+def add_noise(node_feat, noise=False):
+    row, col = node_feat.shape  # 获取张量的形状
+    
+    if noise:
+        # 如果需要添加噪声，生成噪声数据
+        extension_tensor = torch.randn(row, 128 - col).to(device)
+    else:
+        # 否则添加全零的张量
+        extension_tensor = torch.zeros(row, 128 - col).to(device)
+
+    # 将两个张量沿着第二个维度（列）拼接
+    extended_tensor = torch.cat([node_feat, extension_tensor], dim=1)
+
+    return extended_tensor
 
 
 
@@ -349,6 +309,7 @@ def train(model, device, train_loader, valid_loader, optimizer, epoch):
         train_label_value.append(torch.unsqueeze(y, dim=0))
         graph_list = update_node_features(data[1]).to(device)
         node_features = graph_list.ndata['feat'].to(device)
+        #node_features = add_noise(graph_list.ndata['feat'],noise=True).to(device)
         #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu()
         output = model(graph_list, node_features).cpu()
         
@@ -372,48 +333,6 @@ def train(model, device, train_loader, valid_loader, optimizer, epoch):
         total_train_loss = total_train_loss + train_loss
         train_loss.backward()
         optimizer.step()
-
-
-    # 在整个批次上进行一次梯度计算和裁剪
-    '''
-    if isinstance(loaded_valid_loader, list):
-        avg_vali_loss = 0
-    else:
-        model.eval()
-        total_loss_val = 0.0
-        vali_num = 0
-        arr_data = []
-
-        for batch_idx, data in enumerate(valid_loader):
-
-            label_value = []
-            y = data[0]
-            label_value.append(torch.unsqueeze(y, dim=0))
-            graph_list = update_node_features(data[1]).to(device)
-            node_features = graph_list.ndata['feat'].to(device)
-            #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu()
-            output = model(graph_list, node_features).cpu()
-
-            
-            arr_label = torch.Tensor().cpu()
-            arr_pred = torch.Tensor().cpu()
-            for j in range(y.shape[1]):
-                c_valid = np.ones_like(y[:, j], dtype=bool)
-                c_label, c_pred = y[c_valid, j], output[c_valid, j]
-                zero = torch.zeros_like(c_label)
-                c_label = torch.where(c_label == -1, zero, c_label)
-                
-                arr_label = torch.cat((arr_label,c_label),0)
-                arr_pred = torch.cat((arr_pred,c_pred),0)
-            
-            arr_pred = arr_pred.float()
-            arr_label = arr_label.float()
-            loss = loss_fn(arr_pred, arr_label)
-            #loss = FocalLoss(arr_pred, arr_label)
-
-            loss = torch.sum(loss)
-            total_loss_val += loss
-        '''
     total_loss_val = 0.0
     print(f"Epoch {epoch}|Train Loss: {total_train_loss:.4f}| Vali Loss:{total_loss_val:.4f}")
 
@@ -430,12 +349,8 @@ def predicting(model, device, data_loader):
         for batch_idx, data in enumerate(data_loader):
 
             y = data[0]
-            #true = inverse_min_max_normalize(y,min_val, max_val)
-            
             graph_list = update_node_features(data[1]).to(device)
-            #node_features = graph_list.ndata['feat'].to(device)
-            node_features = add_noise(graph_list.ndata['feat'],noise=True).to(device)
-            #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu() 
+            node_features = graph_list.ndata['feat'].to(device)
             output = model(graph_list, node_features).cpu()
 
             arr_label = torch.Tensor().cpu()
@@ -462,6 +377,7 @@ def predicting(model, device, data_loader):
 def parse_arguments():
     parser = argparse.ArgumentParser(description="help")
 
+
     parser.add_argument("--config", type=str, help="path")
 
     args = parser.parse_args()
@@ -469,7 +385,6 @@ def parse_arguments():
     if args.config:
         with open(args.config, "r") as config_file:
             config = yaml.safe_load(config_file)
-
         for key, value in config.items():
             setattr(args, key, value)
 
@@ -486,6 +401,7 @@ if __name__ == '__main__':
         device = torch.device('cpu')
         print('The code uses CPU!!!')
 
+    # 设置种子
     seed = 42
     set_seed(seed)
 
@@ -517,7 +433,6 @@ if __name__ == '__main__':
     model_select = args.model_select
     loss_sclect = args.loss_sclect
 
-
     state = torch.load('data/processed/'+datafile+'.pth')
 
     loaded_train_dataset = CustomDataset(state['train_label'], state['train_graph_list'])
@@ -534,6 +449,12 @@ if __name__ == '__main__':
 
     loaded_test_loader = DataLoader(loaded_test_dataset, batch_size=batch_size, shuffle=state['shuffle'],num_workers=4, pin_memory=True, drop_last=True, collate_fn=collate_fn)
 
+
+    print('dataset was loaded!')
+
+    print("length of training set:",len(loaded_train_dataset))
+    print("length of validation set:",len(loaded_valid_dataset))
+    print("length of testing set:",len(loaded_test_dataset))
     
     iter = args.iter
     LR = args.LR
@@ -543,11 +464,14 @@ if __name__ == '__main__':
     pooling = args.pooling
 
     All_AUC = []
+
+    start_time = time.time()
+
     for i in range(iter):
         
         AUC_list = []
         if model_select == 'ka_gnn':
-            model = KA_GNN(in_feat=128, hidden_feat=64, out_feat=32, out=target_dim, 
+            model = KA_GNN(in_feat=encode_dim[0]+encode_dim[1], hidden_feat=64, out_feat=32, out=target_dim, 
                            grid_feat=grid_feat, num_layers=num_layers, pooling = pooling, use_bias=True)
 
         elif model_select == 'ka_gnn_two':
@@ -569,8 +493,6 @@ if __name__ == '__main__':
         elif model_select == 'kan_sage_two':
             model = KANGNN_two(in_feat=encode_dim[0]+encode_dim[1], hidden_feat=64, out_feat=32, out=target_dim, 
                            grid_feat=grid_feat, num_layers=num_layers, pooling = pooling, use_bias=True)
-                
-        
 
         total_params = sum(p.numel() for p in model.parameters())
         print(f"Total parameters: {total_params}")
@@ -613,6 +535,8 @@ if __name__ == '__main__':
 
                 print(f"Epoch [{epoch+1}], Learning Rate: {scheduler.get_last_lr()}")
 
+                
+                
         
             if epoch % 10 == 0:
                 #MAE_list.append(best_MAE)
@@ -624,9 +548,14 @@ if __name__ == '__main__':
                 print(f"the best result up to {i+1}-loop is {best_auc:.4f}.")
                 formatted_number = "{:.5f}".format(best_auc)
                 All_AUC.append(best_auc)
+                
+
     torch.save(model.state_dict(), 'model.pth')
-    
+
     mean_value = statistics.mean(All_AUC)
+
     std_dev = statistics.stdev(All_AUC)
+    
     print("mean:", mean_value)
     print("std:", std_dev)
+
