@@ -254,7 +254,10 @@ def check_common_elements(list1, list2, element1, element2):
 def atom_to_graph(smiles,encoder_atom,encoder_bond):
     
     mol = Chem.MolFromSmiles(smiles)
-    mol = Chem.AddHs(mol)  
+    if mol is None:
+        return False
+    else:
+        mol = Chem.AddHs(mol) 
     sps_features = []
     coor = []
     edge_id = []
