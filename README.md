@@ -58,7 +58,7 @@ python main.py
 ```
 
 ## KA-GNNs(KA-GCN and KA-GAT)
-![KA-GNNs](KA_GNN.png)  
+![KA-GNNs](KA_GNN.jpg)  
 
 ## Experimental Results
 
