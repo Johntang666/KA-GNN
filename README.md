@@ -90,9 +90,11 @@ The following table presents the comparison of KA-GNN with various GNN architect
 If you find our codes useful in your research, please consider citing:
 
 ```bibtex
-@article{li2024ka,
-  title={KA-GNN: Kolmogorov-Arnold Graph Neural Networks for Molecular Property Prediction},
+@article{li2025kolmogorov,
+  title={Kolmogorov--Arnold graph neural networks for molecular property prediction},
   author={Li, Longlong and Zhang, Yipeng and Wang, Guanghui and Xia, Kelin},
-  journal={arXiv preprint arXiv:2410.11323},
-  year={2024}
+  journal={Nature Machine Intelligence},
+  pages={1--9},
+  year={2025},
+  publisher={Nature Publishing Group}
 }
