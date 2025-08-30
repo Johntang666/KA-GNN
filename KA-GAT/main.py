@@ -259,24 +259,7 @@ def creat_data(datafile, encoder_atom, encoder_bond,batch_size,train_ratio,vali_
 
 
 
-def message_func(edges):
-    """ edge feature """
-    return {'feat': edges.data['feat']}
 
-def reduce_func(nodes):
-    """ edge feature """
-    num_edges = nodes.mailbox['feat'].size(1)  
-    agg_feats = torch.sum(nodes.mailbox['feat'], dim=1) / num_edges  
-    #agg_feats = F.normalize(agg_feats, p=2, dim=1) 
-    return {'agg_feats': agg_feats}
-
-def update_node_features(g):
-    """ update node feature """
-    g.send_and_recv(g.edges(), message_func, reduce_func)
-
-    g.ndata['feat'] = torch.cat((g.ndata['feat'], g.ndata['agg_feats']), dim=1)
-    
-    return g
 
 
 
@@ -338,46 +321,38 @@ def train(model, device, train_loader, valid_loader, optimizer, epoch):
         train_loss.backward()
         optimizer.step()
     
-    '''
-    if isinstance(loaded_valid_loader, list):
-        avg_vali_loss = 0
-    else:
-        model.eval()
-        total_loss_val = 0.0
-        vali_num = 0
-        arr_data = []
-
-        for batch_idx, data in enumerate(valid_loader):
-
-            label_value = []
-            y = data[0]
-            label_value.append(torch.unsqueeze(y, dim=0))
-            graph_list = update_node_features(data[1]).to(device)
-            node_features = graph_list.ndata['feat'].to(device)
-            #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu()
-            output = model(graph_list, node_features).cpu()
-
-            
-            arr_label = torch.Tensor().cpu()
-            arr_pred = torch.Tensor().cpu()
-            for j in range(y.shape[1]):
-                c_valid = np.ones_like(y[:, j], dtype=bool)
-                c_label, c_pred = y[c_valid, j], output[c_valid, j]
-                zero = torch.zeros_like(c_label)
-                c_label = torch.where(c_label == -1, zero, c_label)
-                
-                arr_label = torch.cat((arr_label,c_label),0)
-                arr_pred = torch.cat((arr_pred,c_pred),0)
-            
-            arr_pred = arr_pred.float()
-            arr_label = arr_label.float()
-            loss = loss_fn(arr_pred, arr_label)
-            #loss = FocalLoss(arr_pred, arr_label)
-
-            loss = torch.sum(loss)
-            total_loss_val += loss
-        '''
     total_loss_val = 0.0
+
+    for batch_idx, valid_data in enumerate(valid_loader):
+
+        y = valid_data[0]
+        #label_value.append(torch.unsqueeze(y, dim=0))
+        graph_list = valid_data[1].to(device)
+        node_features = graph_list.ndata['feat'].to(device)
+        edge_features = graph_list.edata['feat'].to(device)
+        #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu()
+        output = model(graph_list, node_features, edge_features).cpu()
+
+        
+        arr_label = torch.Tensor().cpu()
+        arr_pred = torch.Tensor().cpu()
+        for j in range(y.shape[1]):
+            c_valid = np.ones_like(y[:, j], dtype=bool)
+            c_label, c_pred = y[c_valid, j], output[c_valid, j]
+            zero = torch.zeros_like(c_label)
+            c_label = torch.where(c_label == -1, zero, c_label)
+            
+            arr_label = torch.cat((arr_label,c_label),0)
+            arr_pred = torch.cat((arr_pred,c_pred),0)
+        
+        arr_pred = arr_pred.float()
+        arr_label = arr_label.float()
+        loss = loss_fn(arr_pred, arr_label)
+        #loss = FocalLoss(arr_pred, arr_label)
+
+        valid_loss = torch.sum(loss)
+        total_loss_val += valid_loss
+        
     print(f"Epoch {epoch}|Train Loss: {total_train_loss:.4f}| Vali Loss:{total_loss_val:.4f}")
 
     return total_train_loss, total_loss_val
