@@ -316,7 +316,35 @@ def train(model, device, train_loader, valid_loader, optimizer, epoch):
         total_train_loss = total_train_loss + train_loss
         train_loss.backward()
         optimizer.step()
+    model.eval()
     total_loss_val = 0.0
+    for batch_idx, valid_data in enumerate(valid_loader):
+        
+        y = valid_data[0]
+        train_label_value.append(torch.unsqueeze(y, dim=0))
+        graph_list = update_node_features(valid_data[1]).to(device)
+        node_features = graph_list.ndata['feat'].to(device)
+        #node_features = add_noise(graph_list.ndata['feat'],noise=True).to(device)
+        #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu()
+        output = model(graph_list, node_features).cpu()
+        
+        arr_label = torch.Tensor().cpu()
+        arr_pred = torch.Tensor().cpu()
+        for j in range(y.shape[1]):
+            c_valid = np.ones_like(y[:, j], dtype=bool)
+            c_label, c_pred = y[c_valid, j], output[c_valid, j]
+            zero = torch.zeros_like(c_label)
+            c_label = torch.where(c_label == -1, zero, c_label)
+            
+            arr_label = torch.cat((arr_label,c_label),0)
+            arr_pred = torch.cat((arr_pred,c_pred),0)
+        
+        arr_pred = arr_pred.float()
+        arr_label = arr_label.float()
+
+        loss = loss_fn(arr_pred, arr_label)
+        valid_loss = torch.sum(loss)
+        total_loss_val = total_loss_val + valid_loss
     print(f"Epoch {epoch}|Train Loss: {total_train_loss:.4f}| Vali Loss:{total_loss_val:.4f}")
 
     return total_train_loss, total_loss_val
