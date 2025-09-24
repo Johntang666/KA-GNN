@@ -279,6 +279,57 @@ def update_node_features(g):
 
 def train(model, device, train_loader, valid_loader, optimizer, epoch):
     model.train()
+    total_train_loss = 0.0
+
+    for batch_idx, data in enumerate(train_loader):
+        optimizer.zero_grad()
+
+        y = data[0].to(device)              
+        g = update_node_features(data[1]).to(device) 
+        x = g.ndata['feat']                
+
+        out = model(g, x)                   
+
+        y = y.to(dtype=out.dtype)
+        mask = (y != -1).to(dtype=out.dtype)          
+        y_clean = torch.where(y == -1, torch.zeros_like(y), y)
+
+        
+        loss_elem = loss_fn(out, y_clean)             
+        loss = (loss_elem * mask).sum() / mask.sum().clamp_min(1.0)
+
+        loss.backward()
+        optimizer.step()
+
+        total_train_loss += loss.item()               
+
+    model.eval()
+    total_loss_val = 0.0
+    with torch.no_grad():
+        for batch_idx, valid_data in enumerate(valid_loader):
+            y = valid_data[0].to(device)
+            g = update_node_features(valid_data[1]).to(device)
+            x = g.ndata['feat']
+
+            out = model(g, x)
+
+            y = y.to(dtype=out.dtype)
+            mask = (y != -1).to(dtype=out.dtype)
+            y_clean = torch.where(y == -1, torch.zeros_like(y), y)
+
+            loss_elem = loss_fn(out, y_clean)      
+            vloss = (loss_elem * mask).sum() / mask.sum().clamp_min(1.0)
+
+            total_loss_val += vloss.item()
+
+    print(f"Epoch {epoch} | Train Loss: {total_train_loss:.4f} | Vali Loss: {total_loss_val:.4f}")
+    return total_train_loss, total_loss_val
+
+
+
+"""
+def train(model, device, train_loader, valid_loader, optimizer, epoch):
+    model.train()
 
     total_train_loss = 0.0
     train_num = 0
@@ -349,7 +400,7 @@ def train(model, device, train_loader, valid_loader, optimizer, epoch):
     print(f"Epoch {epoch}|Train Loss: {total_train_loss:.4f}| Vali Loss:{total_loss_val:.4f}")
 
     return total_train_loss, total_loss_val
-
+"""
 
 def predicting(model, device, data_loader):
     model.eval()
