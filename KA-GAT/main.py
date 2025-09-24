@@ -267,94 +267,51 @@ def creat_data(datafile, encoder_atom, encoder_bond,batch_size,train_ratio,vali_
 
 def train(model, device, train_loader, valid_loader, optimizer, epoch):
     model.train()
-
     total_train_loss = 0.0
-    train_num = 0
 
-    
     for batch_idx, data in enumerate(train_loader):
-        
         optimizer.zero_grad()
-        train_label_value = []
-        y = data[0]
-        
-        #train_label_value.append(torch.unsqueeze(y, dim=0))
-        #graph_list = update_node_features(data[1]).to(device)
+
+        y = data[0].to(device)
         graph_list = data[1].to(device)
-        node_features = graph_list.ndata['feat'].to(device)
-        edge_features = graph_list.edata['feat'].to(device)
-        
-        #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu()
-        output = model(graph_list, node_features, edge_features).cpu()
-       
-        arr_label = torch.Tensor().cpu()
-        arr_pred = torch.Tensor().cpu()
-        for j in range(y.shape[1]):
-            c_valid = np.ones_like(y[:, j], dtype=bool)
-            c_label, c_pred = y[c_valid, j], output[c_valid, j]
-            zero = torch.zeros_like(c_label)
-            c_label = torch.where(c_label == -1, zero, c_label)
-            
-            arr_label = torch.cat((arr_label,c_label),0)
-            arr_pred = torch.cat((arr_pred,c_pred),0)
-        
-        arr_pred = arr_pred.float()
-        arr_label = arr_label.float()
-        '''# Check if all values in arr_pred are between 0 and 1
-        if torch.all((arr_pred >= 0) & (arr_pred <= 1)):
-            print("All prediction values are between 0 and 1.")
-        else:
-            print("Prediction values are out of the range [0, 1].")
+        node_features = graph_list.ndata['feat']
+        edge_features = graph_list.edata['feat']
 
-        # Similarly for arr_label, if it's supposed to be probabilities
-        if torch.all((arr_label >= 0) & (arr_label <= 1)):
-            print("All label values are between 0 and 1.")
-        else:
-            print("Label values are out of the range [0, 1].")
-        '''
-        
+        output = model(graph_list, node_features, edge_features) 
 
-        loss = loss_fn(arr_pred, arr_label)
-        #loss = FocalLoss(arr_pred, arr_label)
-        train_loss = torch.sum(loss)
-        total_train_loss = total_train_loss + train_loss
+        y = y.to(dtype=output.dtype)
+        mask = (y != -1).to(dtype=output.dtype)
+        y_clean = torch.where(y == -1, torch.zeros_like(y, dtype=output.dtype), y)
+
+        loss_raw = loss_fn(output, y_clean) 
+        train_loss = (loss_raw * mask).sum() / mask.sum().clamp_min(1.0)
+
         train_loss.backward()
         optimizer.step()
-    
+
+        total_train_loss += train_loss.item()
+
+    model.eval()
     total_loss_val = 0.0
     with torch.no_grad():
         for batch_idx, valid_data in enumerate(valid_loader):
-    
-            y = valid_data[0]
-            #label_value.append(torch.unsqueeze(y, dim=0))
+            y = valid_data[0].to(device)
             graph_list = valid_data[1].to(device)
-            node_features = graph_list.ndata['feat'].to(device)
-            edge_features = graph_list.edata['feat'].to(device)
-            #output = model(batch_g_list = graph_list, device = device, resent = resent,pooling=pooling).cpu()
-            output = model(graph_list, node_features, edge_features).cpu()
-    
-            
-            arr_label = torch.Tensor().cpu()
-            arr_pred = torch.Tensor().cpu()
-            for j in range(y.shape[1]):
-                c_valid = np.ones_like(y[:, j], dtype=bool)
-                c_label, c_pred = y[c_valid, j], output[c_valid, j]
-                zero = torch.zeros_like(c_label)
-                c_label = torch.where(c_label == -1, zero, c_label)
-                
-                arr_label = torch.cat((arr_label,c_label),0)
-                arr_pred = torch.cat((arr_pred,c_pred),0)
-            
-            arr_pred = arr_pred.float()
-            arr_label = arr_label.float()
-            loss = loss_fn(arr_pred, arr_label)
-            #loss = FocalLoss(arr_pred, arr_label)
-    
-            valid_loss = torch.sum(loss)
-            total_loss_val += valid_loss
-        
-    print(f"Epoch {epoch}|Train Loss: {total_train_loss:.4f}| Vali Loss:{total_loss_val:.4f}")
+            node_features = graph_list.ndata['feat']
+            edge_features = graph_list.edata['feat']
 
+            output = model(graph_list, node_features, edge_features)
+
+            y = y.to(dtype=output.dtype)
+            mask = (y != -1).to(dtype=output.dtype)
+            y_clean = torch.where(y == -1, torch.zeros_like(y, dtype=output.dtype), y)
+
+            loss_raw = loss_fn(output, y_clean)  
+            valid_loss = (loss_raw * mask).sum() / mask.sum().clamp_min(1.0)
+
+            total_loss_val += valid_loss.item()
+
+    print(f"Epoch {epoch} | Train Loss: {total_train_loss:.4f} | Vali Loss: {total_loss_val:.4f}")
     return total_train_loss, total_loss_val
 
 
